@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  password      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  callLogs      CallLog[]
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CallLog {
+  id               String        @id @default(cuid())
+  phoneNumber      String
+  status           CallStatus
+  amdStrategy      AmdStrategy
+  amdResult        AmdResult?
+  amdConfidence    Float?
+  audioUrl         String?
+  transcript       String?
+  duration         Int? // in seconds
+  twilioCallSid    String?       @unique
+  jambonzCallId    String?       @unique
+  startTime        DateTime      @default(now())
+  endTime          DateTime?
+  errorMessage     String?
+  userId           String?
+  detectedGreeting String?
+  agentConnected   Boolean       @default(false)
+  events           CallEvent[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([amdStrategy])
+  @@index([startTime])
+  @@index([twilioCallSid])
+}
+
+model CallEvent {
+  id        String   @id @default(cuid())
+  callLogId String
+  type      String   // "ringing", "answered", "amd_analysis", "human_detected", "machine_detected", etc.
+  payload   Json?    // Additional event data
+  timestamp DateTime @default(now())
+  callLog   CallLog  @relation(fields: [callLogId], references: [id], onDelete: Cascade)
+
+  @@index([callLogId])
+  @@index([timestamp])
+}
+
+enum CallStatus {
+  INITIATED
+  RINGING
+  ANSWERED
+  HUMAN_DETECTED
+  MACHINE_DETECTED
+  FAILED
+  COMPLETED
+  NO_ANSWER
+  BUSY
+}
+
+enum AmdStrategy {
+  TWILIO_NATIVE
+  JAMBONZ
+  HUGGINGFACE
+  GEMINI_FLASH
+}
+
+enum AmdResult {
+  HUMAN
+  MACHINE
+  UNCERTAIN
+  TIMEOUT
+  ERROR
+}
+
+
